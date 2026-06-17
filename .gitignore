@@ -1,0 +1,18 @@
+# binaries
+auth-service/server
+report-service/server
+analytics-service/server
+transaction-service/server
+
+# env files
+.env
+*/.env
+
+# Go build cache
+*/vendor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+.idea/
