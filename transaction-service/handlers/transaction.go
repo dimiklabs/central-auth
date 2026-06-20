@@ -2,16 +2,28 @@ package handlers
 
 import (
 	"net/http"
-	"os"
+
+	"transaction-service/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func GetTransactions(c *gin.Context) {
-	c.HTML(http.StatusOK, "transaction.html", gin.H{
-		"email":         c.GetString("email"),
-		"report_url":    os.Getenv("REPORT_SERVICE_URL"),
-		"analytics_url": os.Getenv("ANALYTICS_SERVICE_URL"),
-		"auth_url":      os.Getenv("AUTH_SERVICE_URL"),
+type TransactionHandler struct {
+	svc *service.TransactionService
+}
+
+func NewTransactionHandler(svc *service.TransactionService) *TransactionHandler {
+	return &TransactionHandler{svc: svc}
+}
+
+func (h *TransactionHandler) GetTransactions(c *gin.Context) {
+	transactions := h.svc.GetTransactions()
+	perms, _ := c.Get("permissions")
+	c.JSON(http.StatusOK, gin.H{
+		"email":        c.GetString("email"),
+		"user_id":      c.GetString("user_id"),
+		"scope":        "transactions",
+		"permissions":  perms,
+		"transactions": transactions,
 	})
 }

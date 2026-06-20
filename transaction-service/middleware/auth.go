@@ -3,55 +3,82 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
+
+	"transaction-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Claims struct {
+type centralClaims struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
 }
 
+// RequireAuth implements two-tier token validation:
+//  1. Check for a valid transaction_token (service-specific, short-lived).
+//  2. Fall back to central_auth (identity token) and exchange it for a transaction_token.
 func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cookie, err := c.Cookie("central_auth")
-		if err != nil {
-			loginRedirect(c)
-			return
-		}
-
-		token, err := jwt.ParseWithClaims(cookie, &Claims{}, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		// ── Tier 1: service token ────────────────────────────────────────────
+		if raw, err := c.Cookie(service.TransactionTokenCookie); err == nil {
+			if cl, err := service.ValidateTransactionToken(raw); err == nil {
+				setContext(c, cl.Subject, cl.Email, cl.Permissions)
+				c.Next()
+				return
 			}
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
-		if err != nil || !token.Valid {
-			c.SetSameSite(http.SameSiteLaxMode)
-			c.SetCookie("central_auth", "", -1, "/", "", false, true)
-			loginRedirect(c)
+		}
+
+		// ── Tier 2: central identity token → issue service token ─────────────
+		central, err := c.Cookie("central_auth")
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+		cc, err := parseCentralToken(central)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
 			return
 		}
 
-		cl := token.Claims.(*Claims)
-		if cl.ExpiresAt != nil && cl.ExpiresAt.Before(time.Now()) {
-			loginRedirect(c)
+		svcToken, ttl, err := service.IssueTransactionToken(cc.Subject, cc.Email)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not issue service token"})
+			c.Abort()
 			return
 		}
 
-		c.Set("email", cl.Email)
-		c.Set("user_id", cl.Subject)
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(service.TransactionTokenCookie, svcToken, ttl, "/", "", false, true)
+
+		setContext(c, cc.Subject, cc.Email, []string{"read:transactions"})
 		c.Next()
 	}
 }
 
-func loginRedirect(c *gin.Context) {
-	returnTo := "http://" + c.Request.Host + c.Request.RequestURI
-	authURL := os.Getenv("AUTH_SERVICE_URL")
-	c.Redirect(http.StatusFound, authURL+"/login?return_to="+url.QueryEscape(returnTo))
-	c.Abort()
+func setContext(c *gin.Context, userID, email string, permissions []string) {
+	c.Set("user_id", userID)
+	c.Set("email", email)
+	c.Set("permissions", permissions)
+}
+
+func parseCentralToken(raw string) (*centralClaims, error) {
+	t, err := jwt.ParseWithClaims(raw, &centralClaims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+	if err != nil || !t.Valid {
+		return nil, fmt.Errorf("invalid central token")
+	}
+	cl := t.Claims.(*centralClaims)
+	if cl.ExpiresAt != nil && cl.ExpiresAt.Before(time.Now()) {
+		return nil, fmt.Errorf("central token expired")
+	}
+	return cl, nil
 }

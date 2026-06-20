@@ -2,16 +2,28 @@ package handlers
 
 import (
 	"net/http"
-	"os"
+
+	"report-service/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func GetReports(c *gin.Context) {
-	c.HTML(http.StatusOK, "report.html", gin.H{
-		"email":           c.GetString("email"),
-		"analytics_url":   os.Getenv("ANALYTICS_SERVICE_URL"),
-		"transaction_url": os.Getenv("TRANSACTION_SERVICE_URL"),
-		"auth_url":        os.Getenv("AUTH_SERVICE_URL"),
+type ReportHandler struct {
+	svc *service.ReportService
+}
+
+func NewReportHandler(svc *service.ReportService) *ReportHandler {
+	return &ReportHandler{svc: svc}
+}
+
+func (h *ReportHandler) GetReports(c *gin.Context) {
+	reports := h.svc.GetReports()
+	perms, _ := c.Get("permissions")
+	c.JSON(http.StatusOK, gin.H{
+		"email":       c.GetString("email"),
+		"user_id":     c.GetString("user_id"),
+		"scope":       "reports",
+		"permissions": perms,
+		"reports":     reports,
 	})
 }

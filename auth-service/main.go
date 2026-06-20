@@ -6,6 +6,9 @@ import (
 
 	"auth-service/db"
 	"auth-service/handlers"
+	"auth-service/middleware"
+	"auth-service/repository"
+	"auth-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -24,12 +27,18 @@ func main() {
 		log.Printf("seed warning: %v", err)
 	}
 
-	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
+	userRepo := repository.NewUserRepository(db.DB)
+	authSvc := service.NewAuthService(userRepo)
+	authHandler := handlers.NewAuthHandler(authSvc)
 
-	r.GET("/login", handlers.GetLogin)
-	r.POST("/login", handlers.PostLogin)
-	r.GET("/logout", handlers.GetLogout)
+	r := gin.Default()
+	r.Use(middleware.CORS())
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"service": "auth", "status": "ok"})
+	})
+	r.POST("/login", authHandler.PostLogin)
+	r.GET("/logout", authHandler.GetLogout)
 
 	port := os.Getenv("PORT")
 	if port == "" {

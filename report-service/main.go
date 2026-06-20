@@ -6,6 +6,7 @@ import (
 
 	"report-service/handlers"
 	"report-service/middleware"
+	"report-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -16,13 +17,19 @@ func main() {
 		log.Println("no .env file, reading from environment")
 	}
 
+	reportSvc := service.NewReportService()
+	reportHandler := handlers.NewReportHandler(reportSvc)
+
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
+	r.Use(middleware.CORS())
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"service": "report", "status": "ok"})
+	})
 
 	protected := r.Group("/", middleware.RequireAuth())
 	{
-		protected.GET("/", handlers.GetReports)
-		protected.GET("/reports", handlers.GetReports)
+		protected.GET("/reports", reportHandler.GetReports)
 	}
 
 	port := os.Getenv("PORT")

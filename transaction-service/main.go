@@ -6,6 +6,7 @@ import (
 
 	"transaction-service/handlers"
 	"transaction-service/middleware"
+	"transaction-service/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -16,13 +17,19 @@ func main() {
 		log.Println("no .env file, reading from environment")
 	}
 
+	transactionSvc := service.NewTransactionService()
+	transactionHandler := handlers.NewTransactionHandler(transactionSvc)
+
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
+	r.Use(middleware.CORS())
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"service": "transaction", "status": "ok"})
+	})
 
 	protected := r.Group("/", middleware.RequireAuth())
 	{
-		protected.GET("/", handlers.GetTransactions)
-		protected.GET("/transactions", handlers.GetTransactions)
+		protected.GET("/transactions", transactionHandler.GetTransactions)
 	}
 
 	port := os.Getenv("PORT")

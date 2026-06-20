@@ -66,40 +66,40 @@
     <div class="logo">⬡</div>
     <h1>Central Auth Demo</h1>
     <p class="tagline">
-      Three independent services, one shared login cookie —
+      Four independent services, one shared login cookie —
       the same pattern Google uses for Gmail, Drive, and Docs.
     </p>
 
     <div class="how">
       <h2>How this works</h2>
       <ol>
-        <li>Click any service below. You'll land on the login form.</li>
+        <li>Click any service below. You'll be redirected to the login form.</li>
         <li>Sign in once with <code>alice@example.com</code> / <code>demo123</code>.</li>
-        <li>The <code>central_auth</code> cookie is set on <code>localhost</code>.</li>
+        <li>The <code>central_auth</code> cookie is set on <code>.centralauth.local</code>.</li>
         <li>Click any other service from the nav — <strong>no login form</strong>, instant access.</li>
         <li>Logout from any service clears the cookie everywhere.</li>
       </ol>
     </div>
 
     <div class="services">
-      <a class="service-link" href="http://localhost:4001/reports">
-        <div>
-          <div class="service-name">Reports</div>
-          <div class="service-url">localhost:4001</div>
-        </div>
-        <span class="arrow">→</span>
-      </a>
-      <a class="service-link" href="http://localhost:4002/analytics">
+      <a class="service-link" href="http://analytics.centralauth.local:8080">
         <div>
           <div class="service-name">Analytics</div>
-          <div class="service-url">localhost:4002</div>
+          <div class="service-url">analytics.centralauth.local</div>
         </div>
         <span class="arrow">→</span>
       </a>
-      <a class="service-link" href="http://localhost:4003/transactions">
+      <a class="service-link" href="http://report.centralauth.local:8080">
+        <div>
+          <div class="service-name">Reports</div>
+          <div class="service-url">report.centralauth.local</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+      <a class="service-link" href="http://transaction.centralauth.local:8080">
         <div>
           <div class="service-name">Transactions</div>
-          <div class="service-url">localhost:4003</div>
+          <div class="service-url">transaction.centralauth.local</div>
         </div>
         <span class="arrow">→</span>
       </a>

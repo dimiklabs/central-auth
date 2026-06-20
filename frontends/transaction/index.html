@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions — Central Auth</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; }
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+    .brand { font-weight: 700; color: #059669; font-size: .95rem; margin-right: auto; }
+    nav a {
+      text-decoration: none;
+      color: #475569;
+      font-size: .875rem;
+      font-weight: 500;
+      padding: .375rem .625rem;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+    }
+    nav a:hover { background: #f1f5f9; color: #1e293b; }
+    .logout { color: #dc2626 !important; }
+    .logout:hover { background: #fef2f2 !important; }
+    .user-chip {
+      font-size: .8rem;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: .25rem .75rem;
+      border-radius: 99px;
+    }
+    main { max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: .375rem; }
+    .subtitle { color: #64748b; font-size: .9rem; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    th { background: #f8fafc; text-align: left; padding: .875rem 1.25rem; font-size: .8125rem; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+    td { padding: .875rem 1.25rem; font-size: .875rem; border-bottom: 1px solid #f1f5f9; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+    .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .credit { color: #059669; }
+    .debit  { color: #dc2626; }
+    .badge { display: inline-block; padding: .2rem .6rem; border-radius: 99px; font-size: .75rem; font-weight: 500; }
+    .badge-settled { background: #dcfce7; color: #166534; }
+    .badge-pending { background: #fef9c3; color: #854d0e; }
+    .badge-failed  { background: #fee2e2; color: #991b1b; }
+    .loading { color: #94a3b8; font-size: .9rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="brand">⬡ Central Auth Demo</span>
+    <a href="http://report.centralauth.local:8080">Reports</a>
+    <a href="http://analytics.centralauth.local:8080">Analytics</a>
+    <a href="http://api.auth.centralauth.local:8080/logout" class="logout">Logout</a>
+    <span class="user-chip" id="userChip">…</span>
+  </nav>
+
+  <main id="content">
+    <p class="loading">Loading…</p>
+  </main>
+
+  <script>
+    const API = 'http://api.transaction.centralauth.local:8080';
+    const AUTH = 'http://auth.centralauth.local:8080';
+
+    async function load() {
+      let resp;
+      try {
+        resp = await fetch(API + '/transactions', { credentials: 'include' });
+      } catch {
+        document.getElementById('content').innerHTML = '<p class="loading">Could not reach API.</p>';
+        return;
+      }
+
+      if (resp.status === 401) {
+        window.location.href = AUTH + '?return_to=' + encodeURIComponent(window.location.href);
+        return;
+      }
+
+      const data = await resp.json();
+      document.getElementById('userChip').textContent = data.email;
+      render(data);
+    }
+
+    function statusBadge(status) {
+      return `<span class="badge badge-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+    }
+
+    function render(data) {
+      const rowsHtml = data.transactions.map(tx => `
+        <tr>
+          <td>${tx.id}</td>
+          <td>${tx.date}</td>
+          <td>${tx.description}</td>
+          <td class="amount ${tx.type}">${tx.amount}</td>
+          <td>${statusBadge(tx.status)}</td>
+        </tr>`).join('');
+
+      document.getElementById('content').innerHTML = `
+        <h1>Transactions</h1>
+        <p class="subtitle">Logged in as <strong>${data.email}</strong></p>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+    }
+
+    load();
+  </script>
+</body>
+</html>

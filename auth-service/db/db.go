@@ -11,12 +11,6 @@ import (
 
 var DB *sql.DB
 
-type User struct {
-	ID           int
-	Email        string
-	PasswordHash string
-}
-
 func Connect() error {
 	var err error
 	DB, err = sql.Open("postgres", os.Getenv("DB_DSN"))
@@ -26,21 +20,6 @@ func Connect() error {
 	return DB.Ping()
 }
 
-func FindUserByEmail(email string) (*User, error) {
-	u := &User{}
-	err := DB.QueryRow(
-		`SELECT id, email, password_hash FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-// SeedIfEmpty inserts three demo users (password: demo123) when the table is empty.
 func SeedIfEmpty() error {
 	var count int
 	if err := DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
