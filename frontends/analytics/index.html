@@ -69,8 +69,24 @@
   </main>
 
   <script>
-    const API = 'http://api.analytics.centralauth.local:8080';
+    const API  = 'http://api.analytics.centralauth.local:8080';
     const AUTH = 'http://auth.centralauth.local:8080';
+
+    // Escape all user-controlled values before inserting into innerHTML.
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // clamp share value to 0-100 so style="width:X%" is safe.
+    function safeShare(n) {
+      const v = Number(n);
+      return (Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0);
+    }
 
     async function load() {
       let resp;
@@ -94,22 +110,23 @@
     function render(data) {
       const statsHtml = data.stats.map(s => `
         <div class="stat">
-          <div class="stat-label">${s.label}</div>
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-delta ${s.up ? '' : 'down'}">${s.delta}</div>
+          <div class="stat-label">${esc(s.label)}</div>
+          <div class="stat-value">${esc(s.value)}</div>
+          <div class="stat-delta ${s.up ? '' : 'down'}">${esc(s.delta)}</div>
         </div>`).join('');
 
       const rowsHtml = data.channels.map(ch => `
         <tr>
-          <td>${ch.name}</td>
-          <td>${ch.sessions.toLocaleString()}</td>
-          <td>${ch.share}%</td>
-          <td><div class="bar-wrap"><div class="bar" style="width:${ch.share}%"></div></div></td>
+          <td>${esc(ch.name)}</td>
+          <td>${esc(ch.sessions)}</td>
+          <td>${esc(ch.share)}%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:${safeShare(ch.share)}%"></div></div></td>
         </tr>`).join('');
 
-      document.getElementById('content').innerHTML = `
+      const main = document.getElementById('content');
+      main.innerHTML = `
         <h1>Analytics</h1>
-        <p class="subtitle">Logged in as <strong>${data.email}</strong></p>
+        <p class="subtitle">Logged in as <strong>${esc(data.email)}</strong></p>
         <div class="grid">${statsHtml}</div>
         <table>
           <thead>

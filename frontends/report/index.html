@@ -46,7 +46,8 @@
     tr:hover td { background: #f8fafc; }
     .badge { display: inline-block; padding: .2rem .6rem; border-radius: 99px; font-size: .75rem; font-weight: 500; }
     .badge-published { background: #dcfce7; color: #166534; }
-    .badge-draft { background: #fef9c3; color: #854d0e; }
+    .badge-draft     { background: #fef9c3; color: #854d0e; }
+    .badge-unknown   { background: #f1f5f9; color: #64748b; }
     .loading { color: #94a3b8; font-size: .9rem; margin-top: 2rem; }
   </style>
 </head>
@@ -64,8 +65,25 @@
   </main>
 
   <script>
-    const API = 'http://api.report.centralauth.local:8080';
+    const API  = 'http://api.report.centralauth.local:8080';
     const AUTH = 'http://auth.centralauth.local:8080';
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Allowlist status values to prevent CSS class injection.
+    const ALLOWED_STATUS = new Set(['published', 'draft']);
+    function statusBadge(status) {
+      const safe = ALLOWED_STATUS.has(status) ? status : 'unknown';
+      const label = safe.charAt(0).toUpperCase() + safe.slice(1);
+      return `<span class="badge badge-${safe}">${esc(label)}</span>`;
+    }
 
     async function load() {
       let resp;
@@ -86,23 +104,19 @@
       render(data);
     }
 
-    function statusBadge(status) {
-      return `<span class="badge badge-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
-    }
-
     function render(data) {
       const rowsHtml = data.reports.map(r => `
         <tr>
-          <td>${r.id}</td>
-          <td>${r.title}</td>
-          <td>${r.date}</td>
-          <td>${r.author}</td>
+          <td>${esc(r.id)}</td>
+          <td>${esc(r.title)}</td>
+          <td>${esc(r.date)}</td>
+          <td>${esc(r.author)}</td>
           <td>${statusBadge(r.status)}</td>
         </tr>`).join('');
 
       document.getElementById('content').innerHTML = `
         <h1>Reports</h1>
-        <p class="subtitle">Logged in as <strong>${data.email}</strong></p>
+        <p class="subtitle">Logged in as <strong>${esc(data.email)}</strong></p>
         <table>
           <thead>
             <tr><th>ID</th><th>Title</th><th>Date</th><th>Author</th><th>Status</th></tr>

@@ -89,10 +89,10 @@ All traffic goes through nginx on **port 8080**.
 
 | Service | Port |
 |---|---|
-| auth-service | http://localhost:4000 |
-| report-service | http://localhost:4001 |
-| analytics-service | http://localhost:4002 |
-| transaction-service | http://localhost:4003 |
+| auth | http://localhost:4000 |
+| report | http://localhost:4001 |
+| analytics | http://localhost:4002 |
+| transaction | http://localhost:4003 |
 | PostgreSQL | localhost:5433 |
 
 ---
@@ -203,20 +203,20 @@ curl -H "Cookie: analytics_token=$ANALYTICS_TOKEN" \
 
 ```
 central-auth/
-├── auth-service/
+├── auth/
 │   ├── db/
 │   │   └── db.go               # Connect() and SeedIfEmpty()
 │   ├── handlers/
 │   │   └── auth.go             # PostLogin, GetLogout
 │   ├── middleware/
-│   │   └── cors.go             # CORS only (auth-service has no RequireAuth)
+│   │   └── cors.go             # CORS only (auth has no RequireAuth)
 │   ├── repository/
 │   │   └── user.go             # FindByEmail — PostgreSQL
 │   ├── service/
 │   │   └── auth.go             # Login(), mintJWT() — issues central_auth 24h
 │   └── main.go
 │
-├── analytics-service/
+├── analytics/
 │   ├── handlers/
 │   │   └── analytics.go        # GetAnalytics — returns scope, permissions, data
 │   ├── middleware/
@@ -229,7 +229,7 @@ central-auth/
 │   │   └── token.go            # IssueAnalyticsToken 1h, ValidateAnalyticsToken
 │   └── main.go
 │
-├── report-service/
+├── report/
 │   ├── handlers/
 │   │   └── report.go
 │   ├── middleware/
@@ -242,7 +242,7 @@ central-auth/
 │   │   └── token.go            # IssueReportToken 30min, ValidateReportToken
 │   └── main.go
 │
-├── transaction-service/
+├── transaction/
 │   ├── handlers/
 │   │   └── transaction.go
 │   ├── middleware/
@@ -256,6 +256,7 @@ central-auth/
 │   └── main.go
 │
 ├── frontends/
+│   ├── app/index.html          # Landing page with links to all services
 │   ├── auth/index.html         # Login form — posts to api.auth.centralauth.local:8080
 │   ├── analytics/index.html    # Fetches api.analytics.centralauth.local:8080/analytics
 │   ├── report/index.html       # Fetches api.report.centralauth.local:8080/reports
@@ -263,9 +264,6 @@ central-auth/
 │
 ├── nginx/
 │   └── nginx.conf              # 9 virtual host blocks — frontends and API proxies
-│
-├── app/
-│   └── index.html              # Landing page with links to all services
 │
 ├── docs/
 │   ├── architecture.md         # System diagrams — routing, auth flow, service layers
@@ -281,7 +279,7 @@ central-auth/
 
 ## Environment Variables
 
-### auth-service
+### auth
 
 | Variable | Description | Default |
 |---|---|---|
@@ -298,11 +296,11 @@ central-auth/
 
 | Variable | Description |
 |---|---|
-| `JWT_SECRET` | Must match auth-service — used to both **verify** `central_auth` and **sign** service tokens |
+| `JWT_SECRET` | Must match auth — used to both **verify** `central_auth` and **sign** service tokens |
 | `ALLOWED_ORIGIN` | CORS allowed origin (the corresponding frontend URL) |
 | `PORT` | Listening port |
 
-> **Note on JWT_SECRET:** A single shared secret is used for simplicity. In production you would use asymmetric keys: auth-service signs with a private key, each service verifies with the corresponding public key, and each service has its own private key for its service tokens.
+> **Note on JWT_SECRET:** A single shared secret is used for simplicity. In production you would use asymmetric keys: auth signs with a private key, each service verifies with the corresponding public key, and each service has its own private key for its service tokens.
 
 ---
 
@@ -310,10 +308,10 @@ central-auth/
 
 | Service | Cookie | TTL | Rationale |
 |---|---|---|---|
-| auth-service | `central_auth` | 24h | Long-lived identity token |
-| analytics-service | `analytics_token` | 1h | Aggregate metrics — moderate sensitivity |
-| report-service | `report_token` | 30min | Business reports — higher sensitivity |
-| transaction-service | `transaction_token` | 15min | Financial data — shortest window |
+| auth | `central_auth` | 24h | Long-lived identity token |
+| analytics | `analytics_token` | 1h | Aggregate metrics — moderate sensitivity |
+| report | `report_token` | 30min | Business reports — higher sensitivity |
+| transaction | `transaction_token` | 15min | Financial data — shortest window |
 
 ---
 
@@ -346,7 +344,7 @@ ss -tlnp | grep 8080
 **Service token not being set on first request**
 - Confirm `JWT_SECRET` is identical across all four services in docker-compose.yml.
 - If it differs, `parseCentralToken` will reject the central_auth signature and fall through to a 401.
-- Check service logs: `docker compose logs analytics-service`
+- Check service logs: `docker compose logs analytics`
 
 **Service token accepted but data still returns 401**
 - The service token carries a `scope` claim. A token issued for analytics is rejected by report or transaction even with the same secret.

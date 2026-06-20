@@ -51,6 +51,7 @@
     .badge-settled { background: #dcfce7; color: #166534; }
     .badge-pending { background: #fef9c3; color: #854d0e; }
     .badge-failed  { background: #fee2e2; color: #991b1b; }
+    .badge-unknown { background: #f1f5f9; color: #64748b; }
     .loading { color: #94a3b8; font-size: .9rem; margin-top: 2rem; }
   </style>
 </head>
@@ -68,8 +69,31 @@
   </main>
 
   <script>
-    const API = 'http://api.transaction.centralauth.local:8080';
+    const API  = 'http://api.transaction.centralauth.local:8080';
     const AUTH = 'http://auth.centralauth.local:8080';
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Allowlist transaction types for the CSS class to prevent class injection.
+    const ALLOWED_TYPE   = new Set(['credit', 'debit']);
+    const ALLOWED_STATUS = new Set(['settled', 'pending', 'failed']);
+
+    function amountClass(type) {
+      return ALLOWED_TYPE.has(type) ? type : '';
+    }
+
+    function statusBadge(status) {
+      const safe  = ALLOWED_STATUS.has(status) ? status : 'unknown';
+      const label = safe.charAt(0).toUpperCase() + safe.slice(1);
+      return `<span class="badge badge-${safe}">${esc(label)}</span>`;
+    }
 
     async function load() {
       let resp;
@@ -90,23 +114,19 @@
       render(data);
     }
 
-    function statusBadge(status) {
-      return `<span class="badge badge-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
-    }
-
     function render(data) {
       const rowsHtml = data.transactions.map(tx => `
         <tr>
-          <td>${tx.id}</td>
-          <td>${tx.date}</td>
-          <td>${tx.description}</td>
-          <td class="amount ${tx.type}">${tx.amount}</td>
+          <td>${esc(tx.id)}</td>
+          <td>${esc(tx.date)}</td>
+          <td>${esc(tx.description)}</td>
+          <td class="amount ${amountClass(tx.type)}">${esc(tx.amount)}</td>
           <td>${statusBadge(tx.status)}</td>
         </tr>`).join('');
 
       document.getElementById('content').innerHTML = `
         <h1>Transactions</h1>
-        <p class="subtitle">Logged in as <strong>${data.email}</strong></p>
+        <p class="subtitle">Logged in as <strong>${esc(data.email)}</strong></p>
         <table>
           <thead>
             <tr><th>ID</th><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr>

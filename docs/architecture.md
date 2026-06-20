@@ -34,7 +34,7 @@ This mirrors how real-world SSO works: one identity provider, multiple resource 
 | Frontend | Static HTML + Vanilla JS (nginx-served) |
 | Reverse proxy | nginx (alpine) |
 | Token format | JWT HS256 |
-| Database | PostgreSQL 16 (auth-service only) |
+| Database | PostgreSQL 16 (auth only) |
 | Container runtime | Docker Compose |
 
 ---
@@ -57,10 +57,10 @@ graph TB
             end
 
             subgraph BackendAPIs ["Go Backend APIs"]
-                AuthSvc["auth-service :4000\napi.auth.centralauth.local:8080\nIssues central_auth JWT 24h"]
-                AnalyticsSvc["analytics-service :4002\napi.analytics.centralauth.local:8080\nIssues analytics_token 1h"]
-                ReportSvc["report-service :4001\napi.report.centralauth.local:8080\nIssues report_token 30min"]
-                TxSvc["transaction-service :4003\napi.transaction.centralauth.local:8080\nIssues transaction_token 15min"]
+                AuthSvc["auth :4000\napi.auth.centralauth.local:8080\nIssues central_auth JWT 24h"]
+                AnalyticsSvc["analytics :4002\napi.analytics.centralauth.local:8080\nIssues analytics_token 1h"]
+                ReportSvc["report :4001\napi.report.centralauth.local:8080\nIssues report_token 30min"]
+                TxSvc["transaction :4003\napi.transaction.centralauth.local:8080\nIssues transaction_token 15min"]
             end
 
             PG[("PostgreSQL :5432\nhost port 5433")]
@@ -102,20 +102,20 @@ graph LR
         direction TB
         R1["centralauth.local → /var/www/app"]
         R2["auth.centralauth.local → /var/www/auth"]
-        R3["api.auth.centralauth.local → proxy auth-service:4000"]
+        R3["api.auth.centralauth.local → proxy auth:4000"]
         R4["analytics.centralauth.local → /var/www/analytics"]
-        R5["api.analytics.centralauth.local → proxy analytics-service:4002"]
+        R5["api.analytics.centralauth.local → proxy analytics:4002"]
         R6["report.centralauth.local → /var/www/report"]
-        R7["api.report.centralauth.local → proxy report-service:4001"]
+        R7["api.report.centralauth.local → proxy report:4001"]
         R8["transaction.centralauth.local → /var/www/transaction"]
-        R9["api.transaction.centralauth.local → proxy transaction-service:4003"]
+        R9["api.transaction.centralauth.local → proxy transaction:4003"]
     end
 
     subgraph Backends ["Go Services — Docker internal"]
-        B1["auth-service:4000"]
-        B2["analytics-service:4002"]
-        B3["report-service:4001"]
-        B4["transaction-service:4003"]
+        B1["auth:4000"]
+        B2["analytics:4002"]
+        B3["report:4001"]
+        B4["transaction:4003"]
     end
 
     subgraph StaticFiles ["Static Files — Docker volumes"]
@@ -229,7 +229,7 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph CentralCookie ["central_auth — Domain = .centralauth.local — 24h"]
-        CC["Issued by auth-service on login\nClaims: sub email\nSent to ALL *.centralauth.local requests"]
+        CC["Issued by auth on login\nClaims: sub email\nSent to ALL *.centralauth.local requests"]
     end
 
     subgraph Uses ["Used for token exchange at first visit to each service"]
@@ -320,11 +320,11 @@ graph TB
     class ST token
 ```
 
-### auth-service — has database, no service token
+### auth — has database, no service token
 
 ```mermaid
 graph LR
-    subgraph auth ["auth-service"]
+    subgraph auth ["auth"]
         H["handlers/auth.go\nPostLogin\nGetLogout"]
         S["service/auth.go\nLogin — bcrypt verify\nMintJWT — central_auth 24h"]
         R["repository/user.go\nFindByEmail"]
@@ -350,7 +350,7 @@ graph LR
 
 ```mermaid
 graph LR
-    subgraph analytics ["analytics-service — same pattern for report and transaction"]
+    subgraph analytics ["analytics — same pattern for report and transaction"]
         MW1["middleware/cors.go\nCORS"]
         MW2["middleware/auth.go\nTier 1 — validate analytics_token\nTier 2 — exchange central_auth\nfor new analytics_token"]
         H["handlers/analytics.go\nGetAnalytics\nIncludes scope and permissions"]
@@ -390,11 +390,11 @@ graph TB
     end
 
     subgraph DockerNet ["Docker bridge network"]
-        Nginx["nginx:alpine\nPort 80\nVolumes: app auth analytics report transaction"]
-        Auth["auth-service :4000\nIssues central_auth JWT\nDepends on postgres healthy"]
-        Analytics["analytics-service :4002\nIssues analytics_token\nDepends on auth-service"]
-        Report["report-service :4001\nIssues report_token\nDepends on auth-service"]
-        Tx["transaction-service :4003\nIssues transaction_token\nDepends on auth-service"]
+        Nginx["nginx:alpine\nPort 80\nVolumes: frontends/app frontends/auth frontends/analytics frontends/report frontends/transaction"]
+        Auth["auth :4000\nIssues central_auth JWT\nDepends on postgres healthy"]
+        Analytics["analytics :4002\nIssues analytics_token\nDepends on auth"]
+        Report["report :4001\nIssues report_token\nDepends on auth"]
+        Tx["transaction :4003\nIssues transaction_token\nDepends on auth"]
         PG[("postgres:16-alpine :5432\nusers table\nseed.sql on init")]
     end
 
@@ -428,7 +428,7 @@ sequenceDiagram
     participant B  as Browser
     participant N  as nginx :8080
     participant FE as Static Frontend
-    participant AP as analytics-service :4002
+    participant AP as analytics :4002
 
     B  ->> N:  GET analytics.centralauth.local:8080
     N  ->> FE: Serve index.html
@@ -458,7 +458,7 @@ sequenceDiagram
 sequenceDiagram
     participant B  as Browser
     participant N  as nginx :8080
-    participant AP as analytics-service :4002
+    participant AP as analytics :4002
 
     B  ->> N:  GET api.analytics.centralauth.local:8080/analytics
     Note over N: Forwards both central_auth and analytics_token cookies
@@ -483,7 +483,7 @@ Logout clears only `central_auth`. Service tokens are short-lived and expire on 
 sequenceDiagram
     actor User
     participant N    as nginx
-    participant AU   as auth-service :4000
+    participant AU   as auth :4000
     participant AUTH as Auth Frontend
 
     Note over User: Clicks Logout on any service page

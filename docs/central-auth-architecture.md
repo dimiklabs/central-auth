@@ -13,7 +13,7 @@ Two-tier token architecture: **Central Auth** issues a long-lived *identity* tok
 | | Central Auth Token | Service Token |
 |---|---|---|
 | **Cookie name** | `central_auth` | `analytics_token` / `report_token` / `transaction_token` |
-| **Issued by** | auth-service | The service itself |
+| **Issued by** | auth | The service itself |
 | **TTL** | 24 hours | 1h / 30min / 15min (per service) |
 | **Cookie domain** | `.centralauth.local` (shared) | Host-only (service API only) |
 | **Claims** | `sub`, `email` | `sub`, `email`, `scope`, `permissions` |
@@ -231,7 +231,7 @@ graph TB
 
 | Property | Central Token | Analytics Token | Report Token | Transaction Token |
 |---|---|---|---|---|
-| Issued by | auth-service | analytics-service | report-service | transaction-service |
+| Issued by | auth | analytics | report | transaction |
 | TTL | 24h | 1h | 30min | 15min |
 | Cookie | `central_auth` | `analytics_token` | `report_token` | `transaction_token` |
 | Domain | `.centralauth.local` | host-only | host-only | host-only |
